@@ -1,0 +1,126 @@
+# cra-evidence — GitHub Actions variant (composite action).
+#
+# Same pipeline as the GitLab component, same scripts, same evidence-bundle
+# schema v1.0: syft SBOM -> grype scan -> CISA KEV gate -> signed bundle ->
+# optional push to a Compliance OS ingest API.
+#
+# STATUS: VERIFIED 2026-08-29 — real green run on the GitHub mirror
+# (GitCod3r/cra-ready-toolkit, run 33243179699): full evidence bundle, KEV gate
+# pass, keyless signature verified offline against the pinned workflow identity.
+#
+# Usage (consumer workflow):
+#   permissions:
+#     contents: read
+#     id-token: write          # keyless signing via GitHub OIDC
+#   steps:
+#     - uses: actions/checkout@<pinned-sha>
+#     - uses: <org>/cra-evidence/github-action@<pinned-sha-or-tag>
+#       with:
+#         image_ref: ghcr.io/acme/product:1.2.3
+#         product_name: product
+#         evidence_api_url: https://<platform>/api/ingest      # optional
+#       env:
+#         CRA_INGEST_TOKEN: ${{ secrets.CRA_INGEST_TOKEN }}    # optional
+#
+# Keyless identity to pin in the platform for GitHub:
+#   issuer: https://token.actions.githubusercontent.com
+#   SAN:    https://github.com/<org>/<repo>/.github/workflows/<file>@refs/heads/<branch>
+
+name: cra-evidence
+description: >-
+  CRA release evidence: SBOM (syft) + vulnerability scan (grype) + CISA KEV
+  gate + cosign-signed bundle (evidence-bundle.schema.json v1.0), optionally
+  pushed to a Compliance OS ingest API.
+
+inputs:
+  image_ref:
+    description: Container image to generate evidence for.
+    required: true
+  product_name:
+    description: Product name recorded in the manifest.
+    required: true
+  product_version:
+    description: Defaults to the tag, falling back to the short SHA.
+    required: false
+    default: ''
+  fail_on_kev:
+    description: Fail the job when a CISA-KEV-listed CVE is found.
+    required: false
+    default: 'true'
+  sign:
+    description: Sign SBOM + manifest with cosign keyless (GitHub OIDC).
+    required: false
+    default: 'true'
+  evidence_api_url:
+    description: Optional Compliance OS ingest endpoint (https://<platform>/api/ingest).
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Install pinned tools (syft/grype/cosign from the toolkit Makefile)
+      shell: bash
+      run: make -C "${{ github.action_path }}/.." tools
+
+    - name: SBOM + scan + KEV gate
+      shell: bash
+      run: |
+        set -euo pipefail
+        TOOLKIT="${{ github.action_path }}/.."
+        SCRIPTS="$TOOLKIT/components/cra-evidence/scripts"
+        export PATH="$TOOLKIT/.tools/bin:$PATH"
+        IMAGE_REF="${{ inputs.image_ref }}" bash "$SCRIPTS/generate_sbom.sh"
+        bash "$SCRIPTS/scan_vulns.sh"
+        FAIL_ON_KEV="${{ inputs.fail_on_kev }}" bash "$SCRIPTS/kev_gate.sh"
+
+    - name: Sign (keyless via GitHub OIDC)
+      if: inputs.sign == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        TOOLKIT="${{ github.action_path }}/.."
+        SCRIPTS="$TOOLKIT/components/cra-evidence/scripts"
+        export PATH="$TOOLKIT/.tools/bin:$PATH"
+        # Fetch the OIDC token for the sigstore audience (needs id-token: write).
+        SIGSTORE_ID_TOKEN="$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+          "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sigstore" | jq -r .value)"
+        export SIGSTORE_ID_TOKEN
+        FILES="dist/sbom.cdx.json" SIG_DIR="dist/signatures" bash "$SCRIPTS/sign_artifacts.sh"
+
+    - name: Build bundle (manifest + schema validation)
+      shell: bash
+      run: |
+        set -euo pipefail
+        TOOLKIT="${{ github.action_path }}/.."
+        SCRIPTS="$TOOLKIT/components/cra-evidence/scripts"
+        export PATH="$TOOLKIT/.tools/bin:$PATH"
+        export PRODUCT_NAME="${{ inputs.product_name }}"
+        VERSION="${{ inputs.product_version }}"
+        export PRODUCT_VERSION="${VERSION:-${GITHUB_REF_NAME:-dev}}"
+        export COMMIT_SHA="$GITHUB_SHA"
+        export PIPELINE_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+        export JOB_ID="$GITHUB_RUN_ID"
+        export RUNNER="github-hosted"
+        export IMAGE_REF="${{ inputs.image_ref }}"
+        export SIGN_MANIFEST="${{ inputs.sign }}"
+        if [ "$SIGN_MANIFEST" = "true" ]; then
+          SIGSTORE_ID_TOKEN="$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sigstore" | jq -r .value)"
+          export SIGSTORE_ID_TOKEN
+        fi
+        bash "$SCRIPTS/build_bundle.sh"
+
+    - name: Push to Compliance OS
+      if: inputs.evidence_api_url != ''
+      shell: bash
+      run: |
+        set -euo pipefail
+        TOOLKIT="${{ github.action_path }}/.."
+        SCRIPTS="$TOOLKIT/components/cra-evidence/scripts"
+        if [ -z "${CRA_INGEST_TOKEN:-}" ]; then
+          echo "ERROR: evidence_api_url set but CRA_INGEST_TOKEN secret is not in env." >&2
+          exit 1
+        fi
+        INGEST_URL="${{ inputs.evidence_api_url }}" INGEST_TOKEN="$CRA_INGEST_TOKEN" \
+          EVIDENCE_DIR=dist/evidence bash "$SCRIPTS/push_evidence.sh"

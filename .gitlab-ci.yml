@@ -1,0 +1,15 @@
+# CI/CD Catalog publishing: the catalog only lists versions whose release was
+# created BY a pipeline (release: keyword), on a semver tag. Branch pushes
+# create no pipeline (the single job below matches only tags).
+create-release:
+  image: registry.gitlab.com/gitlab-org/release-cli:v0.24.0
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
+  script:
+    - echo "Publishing $CI_COMMIT_TAG to the CI/CD Catalog"
+  release:
+    tag_name: $CI_COMMIT_TAG
+    description: >-
+      cra-evidence $CI_COMMIT_TAG — signed, dated CRA release-evidence bundle
+      (SBOM + vulnerability scan + KEV gate) for GitLab CI and GitHub Actions.
+      See README.md and CHANGELOG.md.

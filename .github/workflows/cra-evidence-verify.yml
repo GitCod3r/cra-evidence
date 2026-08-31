@@ -1,0 +1,34 @@
+# Verification workflow for the GitHub Actions variant (github-action/).
+# Runs on the GitHub MIRROR of this repo (GitLab is the source of truth;
+# GitLab ignores .github/). A green run here is what upgrades the action
+# from EXPERIMENTAL to verified — see github-action/action.yml header.
+#
+# Keyless identity this run produces (pin in the platform for GitHub CI):
+#   issuer: https://token.actions.githubusercontent.com
+#   SAN:    https://github.com/<owner>/cra-evidence/.github/workflows/cra-evidence-verify.yml@refs/heads/main
+name: cra-evidence verify
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write # keyless signing via GitHub OIDC
+
+jobs:
+  evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # Same clean image the GitLab demo-pass path uses as its base.
+      - uses: ./github-action
+        with:
+          image_ref: debian:12-slim
+          product_name: widget-server-gh
+      - uses: actions/upload-artifact@v6
+        if: always() # evidence of failure is still evidence
+        with:
+          name: evidence
+          path: dist/
