@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.2.1 — 2026-09-20
+
+- GitHub Actions: the composite action now archives `dist/evidence` as a run
+  artifact (`cra-evidence-<product_name>`, 90 days, `if: always()` — evidence
+  of a failed gate is still evidence). Before, a consumer using only the
+  action got no artifact unless they pushed to a platform or added their own
+  upload step (found by the first customer walkthrough).
+- No changes to the GitLab component or the scripts.
+
 ## v0.2.0 — 2026-08-31
 
 First public release, split out of the private `cra-ready-toolkit` (which

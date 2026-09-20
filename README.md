@@ -33,7 +33,7 @@ permissions:
   id-token: write                    # keyless signing via GitHub OIDC
 steps:
   - uses: actions/checkout@v5
-  - uses: GitCod3r/cra-evidence/github-action@v0.2.0
+  - uses: GitCod3r/cra-evidence/github-action@v0.2.1
     with:
       image_ref: ghcr.io/acme/my-product:${{ github.sha }}
       product_name: my-product
@@ -43,6 +43,9 @@ steps:
 ```
 
 ## What you get per release
+
+On GitHub the bundle is archived as the run artifact `cra-evidence-<product>`;
+on GitLab it is the `cra:bundle` job artifact (`dist/`).
 
 ```
 dist/evidence/

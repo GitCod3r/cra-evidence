@@ -14,7 +14,7 @@
 #     id-token: write          # keyless signing via GitHub OIDC
 #   steps:
 #     - uses: actions/checkout@<pinned-sha>
-#     - uses: <org>/cra-evidence/github-action@<pinned-sha-or-tag>
+#     - uses: <org>/cra-evidence/github-action@<pinned-sha-or-tag>   # bundle -> run artifact 'cra-evidence-<product>'
 #       with:
 #         image_ref: ghcr.io/acme/product:1.2.3
 #         product_name: product
@@ -110,6 +110,18 @@ runs:
           export SIGSTORE_ID_TOKEN
         fi
         bash "$SCRIPTS/build_bundle.sh"
+
+    # Evidence of failure is still evidence: the bundle is archived as a run
+    # artifact whatever the gate decided, so a consumer never needs a push
+    # step or an upload step of their own to get hold of it.
+    - name: Archive evidence bundle
+      if: always()
+      uses: actions/upload-artifact@v6
+      with:
+        name: cra-evidence-${{ inputs.product_name }}
+        path: dist/evidence
+        if-no-files-found: warn
+        retention-days: 90
 
     - name: Push to Compliance OS
       if: inputs.evidence_api_url != ''
