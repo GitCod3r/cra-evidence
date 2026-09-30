@@ -109,6 +109,15 @@ spec:
   id_tokens:
     SIGSTORE_ID_TOKEN:
       aud: sigstore
+  # Only the finished bundle here — the earlier jobs already archive their own
+  # working files (that is what keeps evidence of a failed gate). Consumers
+  # download this job's artifact and find exactly evidence/ + the tarball.
+  artifacts:
+    when: always
+    paths:
+      - dist/evidence/
+      - dist/evidence-*.tar.gz
+    expire_in: 1 year
   script:
     - export PRODUCT_NAME="$[[ inputs.product_name ]]"
     - export PRODUCT_VERSION="${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}"

@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.2.2 — 2026-09-30
+
+- GitHub Actions: **evidence of a failed KEV gate is now archived.** The gate's
+  verdict is captured instead of aborting the step, so the bundle is still
+  signed, built, archived (and pushed when configured); the job then fails on
+  the verdict in a final step. Before, a KEV hit skipped the bundle and the
+  run ended with no artifact (found by the customer walkthrough, section 8).
+- GitHub Actions: version falls back to the short commit SHA on branch
+  builds, never the branch name (a release called `master` is meaningless).
+- GitLab component: `cra:bundle` archives only `dist/evidence/` + the tarball
+  (the working copies at the top of `dist/` confused consumers; the earlier
+  jobs still archive theirs, so failed-gate evidence is unchanged).
+- `build_bundle.sh`: the tarball no longer repeats the SHA when the version
+  already is the SHA (`evidence-app-f601acdd.tar.gz`, not `…-f601acdd-f601acdd`).
+
 ## v0.2.1 — 2026-09-20
 
 - GitHub Actions: the composite action now archives `dist/evidence` as a run

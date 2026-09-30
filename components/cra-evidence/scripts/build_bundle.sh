@@ -159,7 +159,12 @@ fi
 
 # --- tarball ------------------------------------------------------------------
 SHORT_SHA="$(printf '%s' "$COMMIT_SHA" | cut -c1-8)"
-TARBALL="$OUTPUT_DIR/evidence-${PRODUCT_NAME}-${PRODUCT_VERSION}-${SHORT_SHA}.tar.gz"
+# When the version already IS the short SHA (branch build), don't repeat it.
+if [ "$PRODUCT_VERSION" = "$SHORT_SHA" ]; then
+  TARBALL="$OUTPUT_DIR/evidence-${PRODUCT_NAME}-${SHORT_SHA}.tar.gz"
+else
+  TARBALL="$OUTPUT_DIR/evidence-${PRODUCT_NAME}-${PRODUCT_VERSION}-${SHORT_SHA}.tar.gz"
+fi
 # -C so the archive contains a clean top-level 'evidence/' directory.
 tar -czf "$TARBALL" -C "$OUTPUT_DIR" evidence
 

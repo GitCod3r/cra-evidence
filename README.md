@@ -15,12 +15,12 @@ platform's OIDC.
 
 ```yaml
 include:
-  - component: gitlab.com/nextgensolutionsltd/cra-evidence/cra-evidence@v0.2.0
+  - component: gitlab.com/nextgensolutionsltd/cra-evidence/cra-evidence@v0.2.2
     inputs:
       stage: test
       image_ref: "$CI_REGISTRY_IMAGE/my-product:$CI_COMMIT_SHORT_SHA"
       product_name: my-product
-      toolkit_ref: v0.2.0            # pin the scripts to the same release
+      toolkit_ref: v0.2.2            # pin the scripts to the same release
       evidence_api_url: https://<your-platform-domain>/api/ingest   # optional
 # Settings > CI/CD > Variables: CRA_INGEST_TOKEN (masked) — optional, for cra:push
 ```
@@ -33,7 +33,7 @@ permissions:
   id-token: write                    # keyless signing via GitHub OIDC
 steps:
   - uses: actions/checkout@v5
-  - uses: GitCod3r/cra-evidence/github-action@v0.2.1
+  - uses: GitCod3r/cra-evidence/github-action@v0.2.2
     with:
       image_ref: ghcr.io/acme/my-product:${{ github.sha }}
       product_name: my-product
@@ -57,8 +57,8 @@ dist/evidence/
   signatures/*.bundle    # cosign signature bundles (keyless via CI OIDC)
 ```
 
-- **Evidence of failure is still evidence** — artifacts are archived even when
-  the KEV gate fails the job.
+- **Evidence of failure is still evidence** — the bundle is built, signed and
+  archived even when the KEV gate fails the job (both CI variants).
 - **Pinned tools, no silent installs** — versions live in the [Makefile](Makefile)
   and nowhere else.
 - Full input reference: [components/cra-evidence/README.md](components/cra-evidence/README.md).

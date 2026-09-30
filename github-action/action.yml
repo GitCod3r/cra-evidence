@@ -64,6 +64,7 @@ runs:
       run: make -C "${{ github.action_path }}/.." tools
 
     - name: SBOM + scan + KEV gate
+      id: gate
       shell: bash
       run: |
         set -euo pipefail
@@ -72,7 +73,14 @@ runs:
         export PATH="$TOOLKIT/.tools/bin:$PATH"
         IMAGE_REF="${{ inputs.image_ref }}" bash "$SCRIPTS/generate_sbom.sh"
         bash "$SCRIPTS/scan_vulns.sh"
+        # The gate's verdict is captured, not fatal here: the bundle is still
+        # signed, built and archived below (evidence of failure is still
+        # evidence), and the job fails on the verdict in the last step.
+        set +e
         FAIL_ON_KEV="${{ inputs.fail_on_kev }}" bash "$SCRIPTS/kev_gate.sh"
+        rc=$?
+        set -e
+        echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
 
     - name: Sign (keyless via GitHub OIDC)
       if: inputs.sign == 'true'
@@ -97,7 +105,15 @@ runs:
         export PATH="$TOOLKIT/.tools/bin:$PATH"
         export PRODUCT_NAME="${{ inputs.product_name }}"
         VERSION="${{ inputs.product_version }}"
-        export PRODUCT_VERSION="${VERSION:-${GITHUB_REF_NAME:-dev}}"
+        # Tag when released on a tag, otherwise the short commit SHA — never a
+        # branch name (a release called "master" is meaningless in a register).
+        if [ -z "$VERSION" ]; then
+          case "${GITHUB_REF:-}" in
+            refs/tags/*) VERSION="${GITHUB_REF_NAME}" ;;
+            *)           VERSION="${GITHUB_SHA:0:8}" ;;
+          esac
+        fi
+        export PRODUCT_VERSION="$VERSION"
         export COMMIT_SHA="$GITHUB_SHA"
         export PIPELINE_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
         export JOB_ID="$GITHUB_RUN_ID"
@@ -136,3 +152,10 @@ runs:
         fi
         INGEST_URL="${{ inputs.evidence_api_url }}" INGEST_TOKEN="$CRA_INGEST_TOKEN" \
           EVIDENCE_DIR=dist/evidence bash "$SCRIPTS/push_evidence.sh"
+
+    - name: Enforce KEV gate verdict
+      if: steps.gate.outputs.exit_code != '0'
+      shell: bash
+      run: |
+        echo "::error::CISA KEV gate FAILED (exit ${{ steps.gate.outputs.exit_code }}) — see dist/evidence/kev_result.json in the archived artifact."
+        exit ${{ steps.gate.outputs.exit_code }}
