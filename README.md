@@ -5,7 +5,7 @@ emits a signed, dated evidence bundle — CycloneDX SBOM (syft), vulnerability
 scan (grype), CISA KEV exploit gate, cosign-signed manifest — validated against
 [`schema/evidence-bundle.schema.json`](schema/evidence-bundle.schema.json) and
 optionally pushed straight to a [Compliance OS](https://compliance-os.eu)
-ingest endpoint.
+ingest endpoint (direct-to-storage: any bundle size).
 
 Works with **GitLab CI** (CI/CD Catalog component) and **GitHub Actions**
 (composite action). Same scripts, same schema, keyless signing via each
@@ -15,12 +15,12 @@ platform's OIDC.
 
 ```yaml
 include:
-  - component: gitlab.com/nextgensolutionsltd/cra-evidence/cra-evidence@v0.2.2
+  - component: gitlab.com/nextgensolutionsltd/cra-evidence/cra-evidence@v0.3.0
     inputs:
       stage: test
       image_ref: "$CI_REGISTRY_IMAGE/my-product:$CI_COMMIT_SHORT_SHA"
       product_name: my-product
-      toolkit_ref: v0.2.2            # pin the scripts to the same release
+      toolkit_ref: v0.3.0            # pin the scripts to the same release
       evidence_api_url: https://<your-platform-domain>/api/ingest   # optional
 # Settings > CI/CD > Variables: CRA_INGEST_TOKEN (masked) — optional, for cra:push
 ```
@@ -33,7 +33,7 @@ permissions:
   id-token: write                    # keyless signing via GitHub OIDC
 steps:
   - uses: actions/checkout@v5
-  - uses: GitCod3r/cra-evidence/github-action@v0.2.2
+  - uses: GitCod3r/cra-evidence/github-action@v0.3.0
     with:
       image_ref: ghcr.io/acme/my-product:${{ github.sha }}
       product_name: my-product

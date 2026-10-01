@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.3.0 — 2026-10-01
+
+- `push_evidence.sh`: **direct-to-storage transport.** `begin` (one signed
+  PUT URL per file) → PUT each file straight to the evidence store → `complete`
+  (verify + vault). Bundle size is no longer limited by the platform's
+  request cap (4 MB on the hosted platform). Falls back to the legacy single
+  multipart POST when the platform returns 404 for `/begin`. Needs `jq`
+  (already required by the gate).
+- No change to the GitLab component or GitHub action inputs; both pick the
+  new script up automatically via `toolkit_ref` / the action tag.
+
 ## v0.2.2 — 2026-09-30
 
 - GitHub Actions: **evidence of a failed KEV gate is now archived.** The gate's
